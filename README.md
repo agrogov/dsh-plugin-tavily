@@ -39,7 +39,47 @@ During development, install from a local path instead:
 dsh plugin --profile web add "file:/absolute/path/to/dsh-plugin-tavily"
 ```
 
-The plugin registers the provider and its card only — it does **not** override your profile's chosen search provider.
+The plugin's bundled `cordis.patch.yml` selects Tavily as the profile's `web_search` provider. A later profile patch can still override that selection.
+
+## Local development and installation
+
+This release targets **DeepSeek Harness 0.1.2-rc.1**. The DSH plugin command uses `pnpm` to manage profile dependencies, so `pnpm` must be available on your shell `PATH`.
+
+### Build a local checkout
+
+`lib/` is committed, so a build is not required to install an unchanged checkout. After editing source files, rebuild it:
+
+```sh
+cd /absolute/path/to/dsh-plugin-tavily
+pnpm run build
+```
+
+If pnpm is missing, install it once with `npm install -g pnpm@10` (or use the pnpm major version already used by your DSH profile).
+
+### Install into the `web` profile
+
+The plugin belongs to a DSH home/profile, not to the macOS `.app` bundle. The following installs the local checkout into the default web profile:
+
+```sh
+DSH_HOME=/Users/your-name/.dsh \
+  npx @deepseek-ai/dsh@0.1.2-rc.1 plugin --profile web add \
+  "file:/absolute/path/to/dsh-plugin-tavily"
+```
+
+Check the result:
+
+```sh
+DSH_HOME=/Users/your-name/.dsh \
+  npx @deepseek-ai/dsh@0.1.2-rc.1 plugin --profile web list
+```
+
+Restart DSH afterwards. A desktop app and a separately started `dsh web` share this installation only when they use the same `DSH_HOME` and the `web` profile.
+
+### Local-install troubleshooting
+
+- **`dsh: pnpm not found on PATH`** — install pnpm globally, then open a new Terminal window: `npm install -g pnpm@10`.
+- **`ERR_PNPM_UNEXPECTED_STORE` mentioning `store/v10`** — the existing profile was linked with pnpm 10. Use pnpm 10 (`npm install -g pnpm@10`) before running `dsh plugin … add`. Do not run `pnpm install` inside `~/.dsh/profiles/web` merely to resolve this warning; that can relink the profile unnecessarily.
+- **Missing peer-dependency warnings during `plugin add`** — expected for this external plugin. Harness supplies those peer packages when it loads the profile; a successful command followed by the plugin appearing in `plugin list` is the confirmation.
 
 ## Enable
 

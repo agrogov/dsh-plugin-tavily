@@ -41,6 +41,46 @@ dsh plugin --profile web add "file:/绝对路径/dsh-plugin-tavily"
 
 插件的 `cordis.patch.yml` 会把 `web.config.searchProvider` 设为 `tavily`，即**自动选 Tavily 为提供方**（无需手动改配置）。
 
+## 本地开发与安装
+
+此版本面向 **DeepSeek Harness 0.1.2-rc.1**。DSH 的插件命令使用 `pnpm` 管理 profile 依赖，因此 shell 的 `PATH` 中必须能找到 `pnpm`。
+
+### 构建本地 checkout
+
+`lib/` 已提交到仓库，未修改源码时安装不需要构建。修改源码后请重新构建：
+
+```sh
+cd /绝对路径/dsh-plugin-tavily
+pnpm run build
+```
+
+若没有 pnpm，可先执行 `npm install -g pnpm@10` 安装一次（或使用当前 DSH profile 已使用的 pnpm 主版本）。
+
+### 安装到 `web` profile
+
+插件安装在 DSH 的 home/profile 中，而不是 macOS `.app` 包里。以下命令将本地 checkout 安装到默认 web profile：
+
+```sh
+DSH_HOME=/Users/你的用户名/.dsh \
+  npx @deepseek-ai/dsh@0.1.2-rc.1 plugin --profile web add \
+  "file:/绝对路径/dsh-plugin-tavily"
+```
+
+检查结果：
+
+```sh
+DSH_HOME=/Users/你的用户名/.dsh \
+  npx @deepseek-ai/dsh@0.1.2-rc.1 plugin --profile web list
+```
+
+之后重启 DSH。桌面 app 和单独启动的 `dsh web` 只有在使用相同 `DSH_HOME` 与 `web` profile 时才会共享此安装。
+
+### 本地安装故障排查
+
+- **`dsh: pnpm not found on PATH`** —— 全局安装 pnpm 后重新打开一个 Terminal：`npm install -g pnpm@10`。
+- **`ERR_PNPM_UNEXPECTED_STORE` 且包含 `store/v10`** —— 现有 profile 是用 pnpm 10 链接的。运行 `dsh plugin … add` 前请使用 pnpm 10（`npm install -g pnpm@10`）。不要仅为消除此提示就在 `~/.dsh/profiles/web` 内运行 `pnpm install`；那会无必要地重新链接 profile。
+- **`plugin add` 时缺少 peer dependency 的警告** —— 对外部插件是预期行为。Harness 加载 profile 时会提供这些 peer 包；命令成功且 `plugin list` 中出现插件即表示安装确认。
+
 ## 启用
 
 1. **安装并重启 dsh**。插件已替你设置 `web.config.searchProvider: tavily`，无需手动选择提供方。
