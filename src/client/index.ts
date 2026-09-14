@@ -30,7 +30,7 @@ const NS = 'settings.plugins.tavily'
 const CARD_KEY = 'web-search-tavily'
 
 /** Required services (cordis fiber inject). */
-export const inject = ['slots', 'locale', 'remote', 'settingsScope']
+export const inject = ['slots', 'locale', 'remote', 'remote.credentials', 'settingsScope']
 
 /**
  * Mount the Tavily plugin card into the plugin configuration section.
