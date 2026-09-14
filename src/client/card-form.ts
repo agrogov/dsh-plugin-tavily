@@ -24,7 +24,7 @@
  */
 
 import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
-import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { createSnapshotStore, type SnapshotStore } from './snapshot-store.ts'
 
 /** The write one field's staged text performs when the card is saved. */
 export type FieldWrite =

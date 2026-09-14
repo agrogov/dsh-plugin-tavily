@@ -26,7 +26,7 @@
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { SnapshotStore } from './snapshot-store.ts'
 import {
   booleanField, CardForm, listField, numberField, selectField, textField, valueSelectField,
   type CardActions, type CardFieldState, type CardShell,

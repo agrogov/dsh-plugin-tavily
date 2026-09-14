@@ -1,7 +1,7 @@
 {
   "name": "@dsh-external/dsh-plugin-tavily",
   "description": "Professional Tavily-backed web search provider for DeepSeek Harness — full request parameters in a WebUI settings card, yaml-first priority, and API connectivity test",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "type": "module",
   "main": "lib/index.mjs",
   "files": [
@@ -47,8 +47,7 @@
     "@deepseek-ai/dsh-settings": "^0.1.2-rc.1",
     "@deepseek-ai/dsh-web": "^0.1.2-rc.1",
     "@deepseek-ai/schemastery": "^3.18.2",
-    "react": "^18.2.0",
-    "@deepseek-ai/dsh-client-store": "^0.1.2-rc.1"
+    "react": "^18.2.0"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.2",
@@ -69,8 +68,7 @@
     "puppeteer-core": "^25.8.0",
     "react": "^18.2.0",
     "tsdown": "^0.22.2",
-    "typescript": "^6.0.0",
-    "@deepseek-ai/dsh-client-store": "^0.1.2-rc.1"
+    "typescript": "^6.0.0"
   },
   "scripts": {
     "build": "tsdown --config ./tsdown.config.ts",
