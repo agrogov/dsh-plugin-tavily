@@ -385,8 +385,8 @@ export function apply(ctx: Context, config: Config): void {
     () => deepseekSearch(ctx),
   )
   ctx.web.registerSearchProvider(provider)
-  // Dual-half: also register a Tavily Extract-backed fetch provider. Selecting
-  // it is opt-in via `fetchProvider: tavily-extract` (or DSH_WEB_FETCH_PROVIDER).
+  // Tavily Extract is selected by this bundle patch, so web_fetch has one
+  // unambiguous default. Users may explicitly switch to Firecrawl if desired.
   ctx.web.registerFetchProvider(
     new TavilyExtractProvider(() => resolveOptions(ctx, current(), entry)),
   )

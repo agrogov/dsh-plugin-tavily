@@ -10,6 +10,7 @@
 - id: web
   config:
     searchProvider: tavily
+    fetchProvider: tavily-extract
 
 - insert:
     - id: web-search-tavily

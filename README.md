@@ -100,7 +100,7 @@ Restart DSH afterwards. A desktop app and a separately started `dsh web` share t
 
 ### Enable the fetch (Extract) provider (optional)
 
-The plugin also registers a Tavily Extract-backed **fetch** provider (`tavily-extract`) for reading a full page's content from a URL. It is inert until selected — set the fetch provider the same way as the search provider:
+The plugin also registers a Tavily Extract-backed **fetch** provider (`tavily-extract`) for reading a full page's content from a URL. It is selected automatically with this plugin, so web_fetch works without an ambiguous-provider error. To select it explicitly:
 
 ```sh
 export DSH_WEB_FETCH_PROVIDER=tavily-extract

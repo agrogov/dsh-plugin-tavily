@@ -30,7 +30,7 @@ const WIRING_YAML = `# ~/.dsh/profiles/<profile>/cordis.patch.yml
 - id: web
   config:
     searchProvider: tavily
-    # fetchProvider: tavily-extract   # optional: URL retrieval via Tavily Extract
+    fetchProvider: tavily-extract    # URL retrieval via Tavily Extract
 `
 
 /**
