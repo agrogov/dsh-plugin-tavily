@@ -18,7 +18,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import type { WebSearchProvider, WebSearchRequest, WebSearchResult } from '@deepseek-ai/dsh-web'
 // Type-only: pulls the ctx.webServer Context merge so the probe route is typed.
 import type {} from '@deepseek-ai/dsh-host-webserver'
@@ -209,7 +209,7 @@ export const Config: z<Config> = z.object({
 })
 
 /** Settings namespace carrying this provider's endpoint, depth, topic, and key reference. */
-export const WEB_SEARCH_TAVILY_SETTINGS_NAMESPACE = settingsNamespace('web-search-tavily')
+export const WEB_SEARCH_TAVILY_SETTINGS_NAMESPACE = 'web-search-tavily' as const
 
 /**
  * Project a resolved section into the options the provider serves its next
@@ -364,14 +364,17 @@ function resolveFirecrawlOptions(ctx: Context, config: Config, entry: Config): F
 export function apply(ctx: Context, config: Config): void {
   const entry = config
   let current: () => Config = () => config
-  installSettingsSection(ctx, WEB_SEARCH_TAVILY_SETTINGS_NAMESPACE, Config, config, {
-    setSource: (source) => {
-      current = source
-    },
-    // The registration carries no resolved value: the provider projects the
-    // section per search, so a committed change needs no re-registration.
-    onChange: () => {},
-  })
+  // Settings is optional: when the service is live it layers user edits over
+  // the composition entry; otherwise the providers continue with that entry.
+  // `installSection` owns attach/detach transitions and keeps `current` valid.
+  const settings = ctx.get('settings')
+  if (settings !== undefined) {
+    settings.installSection(ctx, WEB_SEARCH_TAVILY_SETTINGS_NAMESPACE, Config, config, {
+      setSource: (source) => { current = source },
+      // Providers resolve options for each request, so no re-registration is needed.
+      onChange: () => {},
+    })
+  }
   const provider = new TavilySearchProvider(
     () => resolveOptions(ctx, current(), entry),
     // When the card's engine switch is `deepseek`, answer through the official

@@ -12,12 +12,12 @@ import { defineConfig } from 'tsdown'
  *    client module loader at `/plugins/@dsh-external/dsh-plugin-tavily/client.js`.
  *    The banner wraps the bundle in `window.__ModuleLoader__.load({ id,
  *    factory })`; the loader's `require` answers the externals (the platform
- *    module table + the runtime store exemption), and everything else —
+ *    module table + the client-store exemption), and everything else —
  *    this plugin's own card code — is inlined so the factory is self-contained.
  */
 
 // The module table the browser shell seeds (platform modules) plus the
-// runtime store exemption. `id` in the load banner must equal the entry name
+// client-store exemption. `id` in the load banner must equal the entry name
 // (package name); the loader resolves `./client` from the package exports.
 const PACKAGE_ID = '@dsh-external/dsh-plugin-tavily'
 
@@ -32,7 +32,7 @@ const CLIENT_EXTERNALS = [
   '@deepseek-ai/dsh-client-ui-primitives',
   '@deepseek-ai/dsh-client-ui-attachment',
   '@deepseek-ai/dsh-client-schema-form',
-  '@deepseek-ai/dsh-client-runtime/client',
+  '@deepseek-ai/dsh-client-store',
 ]
 
 export default defineConfig([

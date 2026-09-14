@@ -23,8 +23,10 @@
  * covers everything the card shows.
  */
 
-import type { IApiClient } from '@deepseek-ai/dsh-client-connection/client'
-import type { SettingsScope, SettingsScopeSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import {
   booleanField, CardForm, listField, numberField, selectField, textField, valueSelectField,
   type CardActions, type CardFieldState, type CardShell,
@@ -44,6 +46,20 @@ const DEFAULT_BASE_URL = 'https://api.tavily.com'
 
 /** Form field the credential control stages under. */
 const API_KEY_FIELD = 'apiKey'
+
+/** Minimal credentials remote contract available in the Harness web client. */
+interface CredentialsRemote {
+  describe(refs: readonly string[]): Promise<
+    | { readonly ok: true, readonly value: Record<string, { configured?: boolean, writable?: boolean }> }
+    | { readonly ok: false }
+  >
+  set(ref: string, value: string): Promise<unknown>
+}
+
+/** Client context with the credentials contribution selected by the app shell. */
+export type TavilyClientContext = ClientContext & {
+  remote: ClientContext['remote'] & { credentials: CredentialsRemote }
+}
 
 /** The search-provider fields this card edits. */
 export interface TavilySettings {
@@ -329,11 +345,11 @@ export class TavilyCardController {
 
   /**
    * @param scope - the bound settings scope for the `web-search-tavily` namespace.
-   * @param api - wire face used for the credential the section references.
+   * @param ctx - client context, whose remote credentials domain owns the key.
    */
   constructor(
     private readonly scope: SettingsScope<TavilySettings>,
-    private readonly api: Pick<IApiClient, 'credentials'>,
+    private readonly ctx: TavilyClientContext,
   ) {
     this.form = new CardForm(
       scope,
@@ -440,16 +456,16 @@ export class TavilyCardController {
       this.credential = { ref, configured: false, writable: true }
       this.store.set(this.projection())
     }
-    let response: Awaited<ReturnType<IApiClient['credentials']['describe']>>
+    let response: Awaited<ReturnType<CredentialsRemote['describe']>>
     try {
-      response = await this.api.credentials.describe({ refs: [ref] })
+      response = await this.ctx.remote.credentials.describe([ref])
     } catch (_credentialReadFailure) {
       // The card stays usable without this: the key control simply reports the
       // last state it knew, and a write still reaches the Host.
       return
     }
-    if (!response.result.ok || ref !== refOf(this.scope.getSnapshot())) return
-    const view = response.result.value.credentials[ref]
+    if (!response.ok || ref !== refOf(this.scope.getSnapshot())) return
+    const view = response.value[ref]
     const next: CredentialState = {
       ref,
       configured: view?.configured ?? false,
@@ -701,7 +717,7 @@ export class TavilyCardController {
    */
   private async writeKey(value: string): Promise<boolean> {
     try {
-      await this.api.credentials.set({ ref: refOf(this.scope.getSnapshot()), value })
+      await this.ctx.remote.credentials.set(refOf(this.scope.getSnapshot()), value)
     } catch (_credentialWriteFailure) {
       // Refusals surface through the re-read below: the Host is the only
       // authority on whether the key now exists.

@@ -7,9 +7,8 @@
 
 import { useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-// The keyed-slot contract for 'settings.plugin.item' is pinned in
-// ./slot-contract.ts — the card registers into a slot the shell declares.
-import './slot-contract.ts'
+// Pull in the host settings-plugin slot declaration without bundling it.
+import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import { CheckField, SecretField, SelectField, ValueField } from './fields.tsx'
 import { PluginCard } from './PluginCard.tsx'
 import { TAVILY_PRESETS, type TavilyCardFace, type TavilyErrorCode } from './tavily-card-controller.ts'
