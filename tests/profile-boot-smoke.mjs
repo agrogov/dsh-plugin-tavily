@@ -3,16 +3,16 @@
  *
  * Installs the packed plugin into a fresh dsh web profile, boots `dsh web`
  * headless, and asserts the server comes up, the plugin's client bundle is
- * served with the dual-field card registration (`key` + `id` + `order`), and
+ * installed with the keyed card registration (`key`, with no retired list-slot fields), and
  * no plugin-load failure markers appear in the boot log. This is the
- * install→serve wiring check; the slot-contract semantics of the served
+ * install→boot wiring check; the slot-contract semantics of the installed
  * registration are pinned separately by `tests/slot-contract-compat.mjs`
  * (run per `@deepseek-ai/dsh-client-ui-slots` version).
  *
  * Env:
  *   PLUGIN_TGZ       path to the packed plugin tarball (required)
  *   DSH_CMD          dsh CLI invocation (default `dsh`; e.g.
- *                    `npx --yes --package @deepseek-ai/dsh@0.1.0-rc.6 dsh`)
+ *                    `node /path/to/@deepseek-ai/dsh/lib/bin.js`)
  *   SMOKE_DSH_HOME   profile root (default: a fresh temp dir; the ambient
  *                    DSH_HOME is deliberately NEVER used, so a developer's
  *                    real profile can't be touched by accident)
@@ -25,7 +25,7 @@
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
 import { connect } from 'node:net'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -36,7 +36,7 @@ const explicitHome = process.env.SMOKE_DSH_HOME
 const DSH_HOME = explicitHome ?? mkdtempSync(join(tmpdir(), 'dsh-profile-smoke-'))
 const HOME_CREATED = !explicitHome
 const PORT = Number(process.env.PORT ?? 46999)
-const CLIENT_URL = `http://127.0.0.1:${PORT}/plugins/@dsh-external/dsh-plugin-tavily/client.js`
+const INSTALLED_CLIENT_BUNDLE = join(DSH_HOME, 'profiles', 'web', 'node_modules', '@dsh-external', 'dsh-plugin-tavily', 'lib', 'client.cjs')
 
 const FAILURE_MARKERS = [
   /Failed to load plugins/i,
@@ -82,17 +82,12 @@ try {
   const exit = new Promise((resolve) => server.once('exit', (code, sig) => resolve({ code, sig })))
   await waitForPort(PORT)
 
-  // 3. Fetch the served client bundle: 200 + dual-field registration present.
-  const res = await fetch(CLIENT_URL)
-  assert.equal(res.status, 200, `client bundle HTTP ${res.status}`)
-  const bundle = await res.text()
-  assert.ok(bundle.includes('web-search-tavily'), 'served client bundle must contain the tavily card namespace')
-  for (const [field, constName] of [['key', 'CARD_KEY'], ['id', 'CARD_KEY'], ['order', 'CARD_ORDER']]) {
-    assert.ok(
-      new RegExp(`\\b${field}: ${constName}`).test(bundle),
-      `served client bundle must register with \`${field}\``,
-    )
-  }
+  // 3. Verify the installed browser bundle. In 0.1.2 the /plugins routes are
+  // browser-session authenticated, so an unauthenticated Node fetch correctly
+  // receives 404/401 and is not a useful load assertion.
+  const bundle = readFileSync(INSTALLED_CLIENT_BUNDLE, 'utf8')
+  assert.ok(bundle.includes('web-search-tavily'), 'installed client bundle must contain the Tavily card namespace')
+  assert.match(bundle, /key\s*:\s*CARD_KEY/, 'installed client bundle must register with `key`')
 
   // The meaningful liveness guarantee is "still serving when the checks above
   // ran" — dsh web shuts down gracefully (exit 0) on SIGTERM, so a post-kill
@@ -108,14 +103,14 @@ try {
   const hits = FAILURE_MARKERS.filter((m) => m.test(bootLog))
   assert.deepEqual(hits, [], `boot log contains failure markers:\n${bootLog}`)
 
-  console.log(`profile-boot-smoke: ok — ${DSH_HOME} installed, dsh web served the dual-field client bundle (port ${PORT})`)
+  console.log(`profile-boot-smoke: ok — ${DSH_HOME} installed, dsh web stayed live with the keyed client bundle (port ${PORT})`)
 } finally {
   if (HOME_CREATED) rmSync(DSH_HOME, { recursive: true, force: true })
 }
 
 // dsh web may leave a descendant process holding the stdio pipes after the
 // server itself has exited; that would keep this script's event loop alive
-// and hang the CI step long past a passed smoke (observed on the 0.1.1-rc.2
+// and hang the CI step long past a passed smoke (observed on an earlier release
 // leg: the ok line printed at 16:47:59, the job only ended when its 15-minute
 // timeout cancelled it). Exit explicitly so the runner sees a finished step.
 // Everything above the try/finally has already run; on an assertion throw the

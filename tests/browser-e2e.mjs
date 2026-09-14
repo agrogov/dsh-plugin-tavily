@@ -1,6 +1,5 @@
 /**
- * Browser E2E for the plugin card — reproduces the user-visible failure mode
- * of issue #1 in a REAL browser against the REAL runtime.
+ * Browser E2E for the plugin card — reproduces the current Harness keyed-slot integration in a real browser.
  *
  * The reported crash (`Failed to load plugins … list slot
  * "settings.plugin.item" requires options.id`) happens in the BROWSER when the
@@ -12,11 +11,6 @@
  *   1. no loader-failure markers anywhere (page text, console, page errors) —
  *      the exact markers the reporter pasted;
  *   2. the Tavily card is rendered in the plugins configuration list.
- *
- * The genuine rc.6 leg requires the slot-declaring packages pinned to
- * 0.1.0-rc.6 (the published `@deepseek-ai/dsh@0.1.0-rc.6` resolves rc.8
- * settings-plugins which already declare the slot keyed — see ci.yml where
- * the scratch CLI prefix gets a pnpm-workspace.yaml override).
  *
  * Env:
  *   PLUGIN_TGZ     path to the packed plugin tarball (required)

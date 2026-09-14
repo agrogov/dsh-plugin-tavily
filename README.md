@@ -90,7 +90,7 @@ or `fetchProvider: firecrawl` in the same `cordis.patch.yml` row. Without a Fire
 The `web_search` tool's output schema is provider-agnostic — the model never sees a provider name, and the API key intentionally lives outside environment variables, so "check the env" is the wrong probe. To confirm the active backend:
 
 - **Provider selection** — `~/.dsh/profiles/web/cordis.patch.yml` has the `web` row with `searchProvider: tavily`.
-- **Plugin loaded** — `~/.dsh/settings.yaml` contains a `web-search-tavily` section (only the plugin's `installSettingsSection` writes it).
+- **Plugin loaded** — `~/.dsh/settings.yaml` contains a `web-search-tavily` section (only the plugin's settings registration writes it).
 - **Credential in place** — `TAVILY_API_KEY` exists in the credentials store (`~/.dsh/.credentials.yaml`), not in the environment.
 - **Result fingerprint** — a Tavily result carries a generated-answer summary in `content`; the built-in DeepSeek provider does not produce one.
 
@@ -213,29 +213,6 @@ cordis.patch.yml config  >  WebUI card values  >  code defaults
 
 `apiKeyEnv` stays config-only deliberately: it is an advanced wiring detail. Values saved from the GUI land in `~/.dsh/settings.yaml`'s `web-search-tavily` section. Settings edits apply live — the provider re-reads the section for every operation, so no restart or re-registration is needed after changing a value from the card or the file.
 
-## Platform note (web GUI card visibility)
-
-The web GUI serves a plugin's settings section to the browser only when its namespace is on the apiproxy allowlist (`WEB_SETTINGS_NAMESPACES` in `@deepseek-ai/dsh-host-apiproxy`). As of `0.1.0-rc.6` that list is hardcoded and the "let a plugin expose its own configuration" mechanism is deferred, so a freshly installed third-party card is filtered out even though the section is registered host-side. To make the **Web search (Tavily)** card render, add the namespace to the allowlist in your installed copy and restart dsh:
-
-```js
-// ~/.dsh/profiles/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/index.js
-// in the WEB_SETTINGS_NAMESPACES array:
-"web-search-deepseek",
-"web-search-tavily",   // ← add this line
-```
-
-The provider and all of its functionality work without this patch; only the GUI card is hidden. The patch is overwritten by `pnpm install --force` and by harness upgrades, so re-apply it after re-installing dependencies.
-
-**Apply it with the included script** (idempotent; `--check` only reports):
-
-```sh
-node scripts/patch-apiproxy.mjs --check    # report whether a patch is needed
-node scripts/patch-apiproxy.mjs            # patch every installed profile copy
-node scripts/patch-apiproxy.mjs --profile web   # patch one profile
-```
-
-> **Server-side test of a stored key.** This plugin registers a host probe `POST /api/tavily-probe` that can test Tavily with a **stored** key server-side (keyless when none is set); `TavilySearchProvider.connectivityTest()` / `probe()` / `usage()` / `status()` are the programmatic host-side paths, and `GET /api/tavily-status` backs the card's status indicator. The browser cannot read stored secrets back, so the card's `Test API connection` button still requires re-entering an already-configured key.
-
 ## Mapping
 
 Tavily's flat `results[]` maps to normalized `WebSearchSource`s: `url` ← `url`, `title` ← `title`, `snippet` ← the non-blank `content` (entries without content are dropped), `publishedAt` ← `published_date` (news/finance topics). Tavily's generated `answer` (when `includeAnswer`) becomes the result `content`. A request's `maxResults` wins over the configured default and is sent as Tavily's `max_results`; the seam enforces the final bound. The full professional request set is forwarded: `search_depth` (basic/advanced/fast/ultra-fast), `chunks_per_source`, `topic`, `time_range`, `start_date`/`end_date`, `days`, `include_answer` (boolean or `basic`/`advanced`), `include_raw_content` (boolean or `markdown`/`text`), `include_images`, `include_image_descriptions`, `include_favicon`, `include_domains`/`exclude_domains`, and `country`. Note: `include_images`/`include_favicon` are sent to Tavily but cannot yet be surfaced through the normalized `WebSearchSource` shape (the seam has no image/favicon field); they are exposed so the request can carry them. Failures surface as the seam's `WebError` (`WEB_PROVIDER_ERROR` / `WEB_ABORTED`); request timeouts are reported as `WEB_PROVIDER_ERROR`.
@@ -247,7 +224,6 @@ High-confidence follow-ups identified in the product analysis:
 - ✅ **Usage / cost panel** — `GET /usage` in the card + live credit/token estimate (implemented).
 - ✅ **429 retry + short cache** — `retry-after`-aware backoff + optional TTL cache (implemented).
 - ✅ **Extract capability** — a Tavily Extract-backed `WebFetchProvider` registered on the existing fetch seam (implemented).
-- ✅ **apiproxy allowlist friction** — an idempotent `scripts/patch-apiproxy.mjs` (implemented).
 - ✅ **Status indicator** — `GET /api/tavily-status` (stored key, no credit cost) + card badge with refresh (implemented).
 - ✅ **Error taxonomy** — connectivity/usage failures classified as invalid key / insufficient credits / rate limited / service down / timeout / network with per-case UI copy (implemented).
 - ✅ **Cache hardening** — LRU cap (`cacheMaxEntries`) + fresh-query bypass (`cacheBypassFresh`) (implemented).
@@ -274,26 +250,9 @@ node tests/profile-boot-smoke.mjs   # install→serve wiring smoke: needs PLUGIN
 node tests/browser-e2e.mjs          # real-browser load-outcome gate: needs PLUGIN_TGZ + Chromium
 ```
 
-The **browser E2E** (`tests/browser-e2e.mjs`) is the layer that reproduces the
-issue #1 scenario: it boots a real `dsh web`, drives the first-run wizard in a
-real browser, and asserts the plugin loads — the "Failed to load plugins /
-list slot requires options.id" banner is the exact symptom it fails on
-(verified locally on genuine rc.6 with both the broken key-only registration
-and the fixed dual-field one). Used by the CI `browser-e2e` matrix; the headless
-Chrome stall it can hit on loaded dev machines is handled by per-phase time
-budgets, a 300s watchdog, and a retry in CI.
-```
+The **browser E2E** (`tests/browser-e2e.mjs`) boots a real `dsh web`, drives the first-run wizard in a real browser, and verifies that the Tavily settings card renders without a plugin-loader failure. It has phase timeouts and a watchdog for headless-browser reliability.
 
-The `settings.plugin.item` slot contract drifted across released DSH versions —
-`0.1.0-rc.6` declares it a **list** slot (registration requires `id`), while
-`0.1.1-rc.x` declares it **keyed** (registration requires `key`). The card
-registers with **both** `key` and `id` (+ list-side `order`), so one
-registration is accepted by every released runtime. `pnpm run test:contract`
-parses the shipped `lib/client.cjs` and feeds its registration shape into the
-real `SlotCore` under both declaration kinds; the CI matrix
-(`.github/workflows/ci.yml`) reruns it against the published `dsh-client-ui-slots`
-cores (`0.1.0-rc.6` / `0.1.0-rc.8` / `0.1.1-rc.2`) and boots a real dsh profile
-per release (`0.1.0-rc.6` / `0.1.1-rc.2`) to verify the served bundle.
+Harness 0.1.2 uses a **keyed** `settings.plugin.item` slot. The card registers only its stable `key: 'web-search-tavily'`; `pnpm run test:contract` validates that registration against the installed 0.1.2 SlotCore.
 
 The slot-contract section above is pinned by `pnpm run test:contract` and the
 CI matrix. **Releases are fully automated and CI-gated**: bump `package.json`
