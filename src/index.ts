@@ -76,7 +76,10 @@ export type { TavilyUsage } from './types'
 export const name = 'web-search-tavily'
 
 /** The seams this plugin registers into: web providers + an HTTP probe route. */
-export const inject = ['web', 'webServer']
+// `settings` is required even though the provider works without its UI card:
+// Cordis exposes a service only to plugins that declare it as an injection.
+// Without it, the Host does not serve this plugin namespace and hides its card.
+export const inject = ['web', 'webServer', 'settings']
 
 /**
  * Plugin config (all optional — `apply` fills env-var and constant defaults).
