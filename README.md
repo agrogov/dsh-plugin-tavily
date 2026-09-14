@@ -17,7 +17,7 @@ It registers a `tavily` search provider into the harness's `ctx.web` seam, so th
 - **Configuration-first priority**: `cordis.patch.yml` > WebUI > code defaults. Any field explicitly set in the yaml is shown disabled on the card with a "covered by config file" badge, so a stale UI value can never shadow a developer's pinned config.
 - **API connectivity test**: a lightweight `Test API connection` button checks the currently entered key/base URL directly from the browser and reports success or the API error, now **classified** (invalid key / insufficient credits / rate limited / service down / timeout / network) with a targeted explanation per case. Stored keys cannot be read back by the browser by design, so testing an already-configured key requires re-entering it once (it is not saved again).
 - **Usage & cost panel**: the card shows a live per-search credit/token estimate for the current settings, plus a `Check usage` button that reads Tavily `GET /usage` (remaining credits, search usage, plan) with the currently entered key. A host-side `usage()` method on the provider exposes the same data where the stored key is available.
-- **Page extraction**: a Tavily Extract-backed fetch provider (`tavily-extract`) reads a full page from a URL and returns it as clean text/html — select it once and URL retrieval is answered by Tavily.
+- **Page extraction**: a Tavily Extract-backed fetch provider (`tavily-extract`) reads a full page from a URL and returns it as clean text/html. It is selected automatically, so `web_fetch` has one unambiguous provider after installation.
 - **Optional Firecrawl extraction**: an alternative fetch provider (`firecrawl`) scrapes a page via Firecrawl `POST /scrape` (markdown, main content) — selectable when Tavily extracts a page poorly. It registers under its own id and credential (default ref `FIRECRAWL_API_KEY`); search always stays on Tavily. Inert until selected.
 - **Persistent result cache**: `cacheFile` persists the TTL/LRU search cache to a JSON file (survives restarts; `~/` expands, relative paths resolve against the working directory). Best-effort and debounced — a failing disk never breaks a search. Off by default.
 - **Rate-limit retry & cache**: extra attempts after a 429 response honor Tavily's `retry-after` with a bounded backoff, and an optional TTL cache serves identical searches to save credits — LRU-capped (default 200 entries) and, by default, skipped entirely for recency-sensitive searches (news/finance topics or any time window) so a "right now" question never gets a stale snapshot.
@@ -85,9 +85,9 @@ Restart DSH afterwards. A desktop app and a separately started `dsh web` share t
 
 1. **Install & restart dsh.** The plugin's `cordis.patch.yml` already sets `web.config.searchProvider: tavily`, so Tavily is elected automatically — **no manual provider selection needed**.
 
-2. **Set the Tavily API key** (optional). Open `设置 → 插件 → 网页搜索`, expand the **Web search (Tavily)** card, and paste the key into the **API key** field. Without a key Tavily runs **keyless** (free, rate-limited); with a key it uses your account tier. Choose the **Web search engine** switch: `tavily` (default) or `official DeepSeek`.
+2. **Set the Tavily API key.** Open `Settings → Plugins`, expand **Web search (Tavily)**, paste the key, and choose **Save**. The input clears after saving by design: DSH stores the secret separately and never reads it back into the browser. Click **Refresh** to verify the stored key without re-entering it. Choose the **Web search engine** switch: `tavily` (default) or `official DeepSeek`.
 
-3. Use `web_search` as usual. The model-facing tool is unchanged; only the backend answering it is now Tavily (or DeepSeek, if you switched).
+3. Use web search as usual. In the `PTC` agent preset, `web_search` must be called inside `run_code`; see [Test in PTC mode](#test-in-ptc-mode). The backend is Tavily unless you switch the engine to DeepSeek.
 
 > If you ever override the provider in yaml by hand, this is the row:
 
@@ -96,11 +96,12 @@ Restart DSH afterwards. A desktop app and a separately started `dsh web` share t
 - id: web
   config:
     searchProvider: tavily
+    fetchProvider: tavily-extract
 ```
 
 ### Enable the fetch (Extract) provider (optional)
 
-The plugin also registers a Tavily Extract-backed **fetch** provider (`tavily-extract`) for reading a full page's content from a URL. It is selected automatically with this plugin, so web_fetch works without an ambiguous-provider error. To select it explicitly:
+The plugin also registers a Tavily Extract-backed **fetch** provider (`tavily-extract`) for reading a full page's content from a URL. It is selected automatically with this plugin, so `web_fetch` works without an ambiguous-provider error. To select it explicitly:
 
 ```sh
 export DSH_WEB_FETCH_PROVIDER=tavily-extract
@@ -134,6 +135,18 @@ The `web_search` tool's output schema is provider-agnostic — the model never s
 - **Credential in place** — `TAVILY_API_KEY` exists in the credentials store (`~/.dsh/.credentials.yaml`), not in the environment.
 - **Result fingerprint** — a Tavily result carries a generated-answer summary in `content`; the built-in DeepSeek provider does not produce one.
 
+### Test in PTC mode
+
+The PTC preset exposes only `run_code` as a direct tool. Ask the agent to run web search with this program:
+
+```ts
+return await tools.web_search({
+  queries: ["Tavily search_depth documentation"],
+})
+```
+
+A successful test shows a **Search** tool row. If the agent needs the contents of one result, it may then call `tools.web_fetch({ url: "https://…" })` from another `run_code` program; this plugin selects `tavily-extract` automatically.
+
 ### Troubleshooting: "I still get a DeepSeek API key error"
 
 This plugin now **auto-selects Tavily** (`web.searchProvider: tavily`), so a fresh install answers `web_search` with Tavily — no such error in normal use. If you still see a DeepSeek key error:
@@ -154,7 +167,8 @@ Open `设置 → 插件 → 网页搜索` and expand the **Web search (Tavily)**
   - **Parameter preset** — apply **Deep research**, **Quick summary**, or **Live news** in one click: several advanced fields are staged at once (yaml-pinned fields are skipped); press **Save** to apply.
   - **Test API connection** — verifies the key/base URL you just entered; failures are classified (invalid key / insufficient credits / rate limited / service down / timeout / network) with a targeted explanation. Testing consumes one Tavily search credit. If a key is already configured but you have not typed one, the card tells you to re-enter it once; the browser intentionally cannot read stored secrets back.
   - **Estimated cost** — a live line shows the estimated credits and rough token count for the current depth/result/chunk settings.
-  - **Check usage** — reads Tavily `GET /usage` with the currently entered key and shows the remaining credits, search usage, and plan. Stored keys must be re-entered once, like the connectivity test.
+  - **Refresh** — checks the saved key from the Host without exposing it to the browser and without consuming a search credit.
+  - **Check usage** — reads Tavily `GET /usage` with the currently entered key and shows the remaining credits, search usage, and plan. Like the connectivity test, it needs a key typed in the field.
 - **Advanced area (`🔧 Advanced Tavily request parameters`)**:
   - **Max results** — how many web results per search (1–20, default 5).
   - **Search depth** — `basic` (balanced), `advanced` (2 credits, deep), `fast`, or `ultra-fast` (1 credit, lowest latency).
